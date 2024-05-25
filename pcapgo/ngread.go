@@ -47,7 +47,7 @@ type NgReader struct {
 	linkType          layers.LinkType
 	ifaces            []NgInterface
 	currentBlock      ngBlock
-	currentOption     ngOption
+	currentOption     NgOption
 	buf               [24]byte
 	packetBuf         []byte
 	ci                gopacket.CaptureInfo
@@ -63,7 +63,7 @@ type NgReader struct {
 // NewNgReader initializes a new writer, reads the first section header, and if necessary according to the options the first interface.
 func NewNgReader(r io.Reader, options NgReaderOptions) (*NgReader, error) {
 	reader := &NgReader{
-		currentOption: ngOption{
+		currentOption: NgOption{
 			value: make([]byte, 1024),
 		},
 		decryptionSecrets: make([]decryptionSecret, 0),
@@ -199,7 +199,7 @@ func (r *NgReader) readOption() error {
 		if err := r.readBytes(r.currentOption.value); err != nil {
 			return err
 		}
-		//consume padding
+		// consume padding
 		padding := length % 4
 		if padding > 0 {
 			padding = 4 - padding
@@ -393,12 +393,12 @@ OPTIONS:
 		intf.TimestampResolution = 6
 	}
 
-	//parse options
+	// parse options
 	if intf.TimestampResolution.Binary() {
-		//negative power of 2
+		// negative power of 2
 		intf.secondMask = 1 << intf.TimestampResolution.Exponent()
 	} else {
-		//negative power of 10
+		// negative power of 10
 		intf.secondMask = 1
 		for j := uint8(0); j < intf.TimestampResolution.Exponent(); j++ {
 			intf.secondMask *= 10

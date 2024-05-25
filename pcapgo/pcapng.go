@@ -97,6 +97,54 @@ const (
 )
 
 const (
+	ngOptionCodeEnhancedPacketFlags   ngOptionCode = iota + 2 // Enhanced Packet Block flags
+	ngOptionCodeEnhancedPacketHash                            // Enhanced Packet Block hash
+	ngOptionCodeEnhancedPacketDrops                           // Enhanced Packet Block drops
+	ngOptionCodeEnhancedPacketID                              // Enhanced Packet Block ID
+	ngOptionCodeEnhancedPacketQueueID                         // Enhanced Packet Block queue ID
+	ngOptionCodeEnhancedPacketVerdict                         // Enhanced Packet Block verdict
+)
+
+// EnhancedPacketFlag specify flag option for Enhanced Packet Block
+type EnhancedPacketFlag uint32
+
+// Packet direction. Bits 0-1 of EnhancedPacketFlag option
+const (
+	FlagEnhancedPacketDirectionUnknown  EnhancedPacketFlag = 0x00000000 // 00 = information not available
+	FlagEnhancedPacketDirectionInbound                     = 0x00000001 // 01 = inbound
+	FlagEnhancedPacketDirectionOutbound                    = 0x00000002 // 10 = outbound
+	FlagEnhancedPacketDirectionMask                        = 0x00000003 // Packet direction mask
+)
+
+// Reception type. Bits 2-4 of EnhancedPacketFlag option
+const (
+	FlagEnhancedPacketReceptionTypeNotSpecified EnhancedPacketFlag = 0x00000000 // 000 = not specified
+	FlagEnhancedPacketReceptionTypeUnicast                         = 0x00000004 // 001 = unicast
+	FlagEnhancedPacketReceptionTypeMulticast                       = 0x00000008 // 010 = multicast
+	FlagEnhancedPacketReceptionTypeBroadcast                       = 0x0000000C // 011 = broadcast
+	FlagEnhancedPacketReceptionTypePromiscuous                     = 0x00000010 // 100 = promiscuous
+	FlagEnhancedPacketReceptionTypeMask                            = 0x0000001C // Reception type mask
+)
+
+// Packet FCS. Bits 5-8 of EnhancedPacketFlag
+const (
+	FlagEnhancedPacketFCSLengthMask EnhancedPacketFlag = 0x000001E0 // Packet FCS length mask
+)
+
+// Packet link-layer-dependent errors. Bits 16-31 of EnhancedPacketFlag option
+const (
+	FlagEnhancedPacketErrorCRC            EnhancedPacketFlag = 0x01 << (iota + 24) // Bit 24 = CRC error
+	FlagEnhancedPacketErrorLongPacket                                              // Bit 25 = packet too long error
+	FlagEnhancedPacketErrorShortPacket                                             // Bit 26 = packet too short error
+	FlagEnhancedPacketErrorFrameGap                                                // Bit 27 = wrong Inter Frame Gap error
+	FlagEnhancedPacketErrorUnalignedFrame                                          // Bit 28 = unaligned frame error
+	FlagEnhancedPacketErrorFrameDelimiter                                          // Bit 29 = Start Frame Delimiter error
+	FlagEnhancedPacketErrorPreamble                                                // Bit 30 = preamble error
+	FlagEnhancedPacketErrorSymbol                                                  // Bit 31 = symbol error
+	FlagEnhancedPacketErrorMask           = 0xFFFF0000                             // Error mask
+)
+
+const (
 	// Name Resolution Block: record types
 	ngNameRecordEnd   uint16 = iota // End of name resolution records
 	ngNameRecordIPv4                // IPv4 record
@@ -105,12 +153,80 @@ const (
 	ngNameRecordEUI64               // EUI-64 record
 )
 
-// ngOption is a pcapng option
-type ngOption struct {
+// NgOption is a pcapng option
+type NgOption struct {
 	code   ngOptionCode
 	value  []byte
 	raw    interface{}
 	length uint16
+}
+
+// NewOptionComment returns NgOption with a comment for Enhanced Packet Block.
+func NewOptionComment(comment string) NgOption {
+	return NgOption{
+		code:   ngOptionCodeComment,
+		raw:    comment,
+		length: uint16(len(comment)),
+	}
+}
+
+// NewOptionEnhancedPacketFlags returns NgOption with flags for Enhanced Packet
+// Block.
+func NewOptionEnhancedPacketFlags(flag EnhancedPacketFlag) NgOption {
+	return NgOption{
+		code:   ngOptionCodeEnhancedPacketFlags,
+		raw:    uint32(flag),
+		length: 4,
+	}
+}
+
+// NewOptionEnhancedPacketHash returns NgOption with a hash for Enhanced Packet
+// Block.
+func NewOptionEnhancedPacketHash(hash []byte) NgOption {
+	return NgOption{
+		code:   ngOptionCodeEnhancedPacketHash,
+		value:  hash,
+		length: uint16(len(hash)),
+	}
+}
+
+// NewOptionEnhancedPacketDrops returns NgOption with drops for Enhanced Packet
+// Block.
+func NewOptionEnhancedPacketDrops(drops uint64) NgOption {
+	return NgOption{
+		code:   ngOptionCodeEnhancedPacketDrops,
+		raw:    drops,
+		length: 8,
+	}
+}
+
+// NewOptionEnhancedPacketID returns NgOption with ID for Enhanced Packet Block.
+func NewOptionEnhancedPacketID(id uint64) NgOption {
+	return NgOption{
+		code:   ngOptionCodeEnhancedPacketID,
+		raw:    id,
+		length: 8,
+	}
+}
+
+// NewOptionEnhancedPacketQueueID returns NgOption with queue ID for Enhanced
+// Packet Block.
+func NewOptionEnhancedPacketQueueID(queueID uint32) NgOption {
+	return NgOption{
+		code:   ngOptionCodeEnhancedPacketQueueID,
+		raw:    queueID,
+		length: 4,
+	}
+}
+
+// NewOptionEnhancedPacketVerdict returns NgOption with verdict for Enhanced
+// Packet Block.
+func NewOptionEnhancedPacketVerdict(verdict []byte) NgOption {
+	return NgOption{
+		code:   ngOptionCodeEnhancedPacketVerdict,
+		raw:    verdict,
+		length: uint16(len(verdict)),
+	}
 }
 
 // ngBlock is a pcapng block header

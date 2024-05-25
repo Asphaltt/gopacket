@@ -29,7 +29,7 @@ var DefaultNgWriterOptions = NgWriterOptions{
 	SectionInfo: NgSectionInfo{
 		Hardware:    runtime.GOARCH,
 		OS:          runtime.GOOS,
-		Application: "gopacket", //spread the word
+		Application: "gopacket", // spread the word
 	},
 }
 
@@ -37,7 +37,7 @@ var DefaultNgWriterOptions = NgWriterOptions{
 var DefaultNgInterface = NgInterface{
 	Name:                "intf0",
 	OS:                  runtime.GOOS,
-	SnapLength:          0, //unlimited
+	SnapLength:          0, // unlimited
 	TimestampResolution: 9,
 }
 
@@ -79,7 +79,7 @@ func NewNgWriterInterface(w io.Writer, intf NgInterface, options NgWriterOptions
 }
 
 // ngOptionLength returns the needed length for one option value (without padding)
-func ngOptionLength(option ngOption) int {
+func ngOptionLength(option NgOption) int {
 	switch val := option.raw.(type) {
 	case []byte:
 		return len(val)
@@ -99,13 +99,13 @@ func ngOptionLength(option ngOption) int {
 }
 
 // prepareNgOptions fills out the length value of the given options and returns the number of octets needed for all the given options including padding.
-func prepareNgOptions(options []ngOption) uint32 {
+func prepareNgOptions(options []NgOption) uint32 {
 	var ret uint32
 	for i, option := range options {
 		length := ngOptionLength(option)
 		options[i].length = uint16(length)
 		length += (4-length&3)&3 + // padding
-			4 //header
+			4 // header
 		ret += uint32(length)
 	}
 	if ret > 0 {
@@ -115,7 +115,7 @@ func prepareNgOptions(options []ngOption) uint32 {
 }
 
 // writeOptions writes the given options to the file. prepareOptions must be called beforehand.
-func (w *NgWriter) writeOptions(options []ngOption) error {
+func (w *NgWriter) writeOptions(options []NgOption) error {
 	if len(options) == 0 {
 		return nil
 	}
@@ -185,7 +185,7 @@ func (w *NgWriter) writeOptions(options []ngOption) error {
 
 // writeSectionHeader writes a section header to the file
 func (w *NgWriter) writeSectionHeader() error {
-	var scratch [4]ngOption
+	var scratch [4]NgOption
 	i := 0
 	info := w.options.SectionInfo
 	if info.Application != "" {
@@ -238,7 +238,7 @@ func (w *NgWriter) AddInterface(intf NgInterface) (id int, err error) {
 	id = int(w.intf)
 	w.intf++
 
-	var scratch [7]ngOption
+	var scratch [7]NgOption
 	i := 0
 	if intf.Name != "" {
 		scratch[i].code = ngOptionCodeInterfaceName
@@ -303,7 +303,7 @@ func (w *NgWriter) WriteInterfaceStats(intf int, stats NgInterfaceStatistics) er
 		return fmt.Errorf("Can't send statistics for non existent interface %d; have only %d interfaces", intf, w.intf)
 	}
 
-	var scratch [4]ngOption
+	var scratch [4]NgOption
 	i := 0
 	if !stats.StartTime.IsZero() {
 		scratch[i].code = ngOptionCodeInterfaceStatisticsStartTime
@@ -352,8 +352,12 @@ func (w *NgWriter) WriteInterfaceStats(intf int, stats NgInterfaceStatistics) er
 	return err
 }
 
-// WritePacket writes out packet with the given data and capture info. The given InterfaceIndex must already be added to the file. InterfaceIndex 0 is automatically added by the NewWriter* methods.
-func (w *NgWriter) WritePacket(ci gopacket.CaptureInfo, data []byte) error {
+// WritePacket writes out packet with the given data, capture info and some
+// options. The given InterfaceIndex must already be added to the file.
+// InterfaceIndex 0 is automatically added by the NewWriter* methods. The
+// additional options are written with the packet. But the additional option can
+// not be empty, or it will panic.
+func (w *NgWriter) WritePacket(ci gopacket.CaptureInfo, data []byte, options ...NgOption) error {
 	if ci.InterfaceIndex >= int(w.intf) || ci.InterfaceIndex < 0 {
 		return fmt.Errorf("Can't send statistics for non existent interface %d; have only %d interfaces", ci.InterfaceIndex, w.intf)
 	}
@@ -367,6 +371,7 @@ func (w *NgWriter) WritePacket(ci gopacket.CaptureInfo, data []byte) error {
 	length := uint32(len(data)) + 32
 	padding := (4 - length&3) & 3
 	length += padding
+	length += prepareNgOptions(options)
 
 	ts := ci.Timestamp.UnixNano()
 
@@ -387,7 +392,15 @@ func (w *NgWriter) WritePacket(ci gopacket.CaptureInfo, data []byte) error {
 	}
 
 	binary.LittleEndian.PutUint32(w.buf[:4], 0)
-	_, err := w.w.Write(w.buf[4-padding : 8]) // padding + length
+	if _, err := w.w.Write(w.buf[4-padding : 4]); err != nil { // padding
+		return err
+	}
+
+	if err := w.writeOptions(options); err != nil {
+		return err
+	}
+
+	_, err := w.w.Write(w.buf[4:8]) // length
 	return err
 }
 
